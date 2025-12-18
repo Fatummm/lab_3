@@ -13,17 +13,17 @@ public:
     void set(const Key& key, const Value& value) override {
         
         // if the key is already in the buffer
-        for (auto& elem: buffer) {
-            if (elem == key) {
-                elem.GetValue() = value;
-                ++elem;
-                return;
-            }
+        if (hs.find(key) != hs.end()) {
+            size_t index = hs[key];
+            buffer[index].GetValue() = value;
+            ++buffer[index];
+            return;
         }
 
         // if the buffer is not full yet
         if (sz_ < cap_) {
-            buffer.push_back(CacheItem{{key, value}});
+            buffer.push_back(CacheItem{key, value});
+            hs[key] = sz_;
             ++sz_;
             return;
         }
@@ -32,7 +32,9 @@ public:
         int i = 0;
         while (true) {
             if (buffer[i].IsZero()) {
-                buffer[i] = CacheItem{{key, value}};
+                hs.erase(buffer[i].GetKey());
+                buffer[i] = CacheItem{key, value};
+                hs[key] = i;
                 return;
             }
             --buffer[i];
@@ -41,28 +43,20 @@ public:
     }
     
     Value get(const Key& key) override {
-        for (auto& elem: buffer) {
-            if (elem == key) {
-                ++elem;
-                return elem.GetValue();
-            }
+        if (hs.find(key) != hs.end()) {
+            return buffer[hs[key]].GetValue();
         }
         // if there is no key in the buffer
         throw std::out_of_range("There is no such key!");
     }
     
     bool contains(const Key& key) const override {
-        for (auto& elem: buffer) {
-            if (elem == key) {
-                return true;
-            }
-        }
-        // There is no such key
-        return false;
+        return hs.find(key) != hs.end();
     }
     
     void clear() override {
         buffer.clear();
+        hs.clear();
         sz_ = 0;
     }
     
@@ -77,11 +71,7 @@ private:
         size_t usage_count = 1;
 
         CacheItem() = default;
-        CacheItem(const std::pair<Key, Value>& p): key(p.first), value(p.second), usage_count(1) {}
-
-        bool operator == (const Key& key) const  {
-            return this->key == key;
-        }
+        CacheItem(const Key& key, const Value& val): key(key), value(val), usage_count(1) {}
 
         CacheItem& operator --() {
             --usage_count;
@@ -91,6 +81,10 @@ private:
         CacheItem& operator ++() {
             if (usage_count < 5) ++usage_count;
             return *this;
+        }
+
+        Key& GetKey() {
+            return key;
         }
 
         bool IsZero() {
@@ -105,4 +99,5 @@ private:
     int sz_ = 0;
     int cap_ = 5;
     std::vector<CacheItem> buffer;
+    std::unordered_map<Key, size_t> hs;
 };

@@ -10,7 +10,7 @@ protected:
     }
 };
 
-
+#include <iostream>
 // Usual test: put, get different and same values;
 TEST_F(CacheTest, PutAndGet) {
     SharedCache<int, int> cache;
